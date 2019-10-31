@@ -10,6 +10,7 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0] * 256
         self.reg = [0] * 8
+        self.pc = None
 
     def load(self):
         """Load a program into memory."""
@@ -60,6 +61,12 @@ class CPU:
             print(" %02X" % self.reg[i], end='')
 
         print()
+
+    def ram_read(self, addr):
+        return self.ram[addr]
+
+    def ram_write(self, value, addr):
+        self.ram[addr] = value
 
     def run(self):
         """Run the CPU."""
