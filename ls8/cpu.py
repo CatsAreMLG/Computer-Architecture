@@ -4,62 +4,63 @@ import sys
 
 
 class CPU:
-    """Main CPU class."""
-
     def __init__(self):
-        """Construct a new CPU."""
-        self.ram = [0] * 256
-        self.reg = [0] * 8
-        self.pc = None
+        self.registers = [0b0] * 8
+        self.pc = 0
+        self.ir = None
+        self.mar = None
+        self.mdr = None
+        self.fl = None
+        self.spl = None
+        self.ram = [0b0] * 0xFF
+        self.spl = 8 - 1
+        self.registers[self.spl] = 0xF4
 
-    def load(self):
-        """Load a program into memory."""
+        self.OPCODES = {
+            0b10000010: 'LDI',
+            0b01000111: 'PRN',
+            0b00000001: 'HLT',
+            0b10100010: 'MUL',
+            0b01000110: 'POP',
+            0b01000101: 'PUSH',
+            0b10000100: 'ST',
+        }
 
-        address = 0
+    def load(self, filename):
+        try:
+            with open(filename, 'r') as f:
+                lines = (line for line in f.readlines() if not (
+                    line[0] == '#' or line[0] == '\n'))
+                program = [int(line.split('#')[0].strip(), 2)
+                           for line in lines]
+            address = 0
 
-        # For now, we've just hardcoded a program:
-
-        program = [
-            # From print8.ls8
-            0b10000010,  # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111,  # PRN R0
-            0b00000000,
-            0b00000001,  # HLT
-        ]
-
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+            for instruction in program:
+                self.ram[address] = instruction
+                address += 1
+        except FileNotFoundError as e:
+            print(e)
+            sys.exit()
 
     def alu(self, op, reg_a, reg_b):
-        """ALU operations."""
-
+        # addition
         if op == "ADD":
-            self.reg[reg_a] += self.reg[reg_b]
-        # elif op == "SUB": etc
+            self.registers[reg_a] += self.registers[reg_b]
+        # multiplication
+        elif op == "MUL":
+            self.registers[reg_a] *= self.registers[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
 
     def trace(self):
-        """
-        Handy function to print out the CPU state. You might want to call this
-        from run() if you need help debugging.
-        """
-
         print(f"TRACE: %02X | %02X %02X %02X |" % (
             self.pc,
-            # self.fl,
-            # self.ie,
             self.ram_read(self.pc),
             self.ram_read(self.pc + 1),
             self.ram_read(self.pc + 2)
         ), end='')
-
         for i in range(8):
-            print(" %02X" % self.reg[i], end='')
-
+            print(" %02X" % self.registers[i], end='')
         print()
 
     def ram_read(self, addr):
@@ -69,5 +70,57 @@ class CPU:
         self.ram[addr] = value
 
     def run(self):
-        """Run the CPU."""
+        running = True
+        while running:
+            # self.trace()
+            self.ir = self.ram[self.pc]
+            try:
+                op = self.OPCODES[self.ir]
+                # do LDI
+                if op == 'LDI':
+                    reg = self.ram[self.pc+1]
+                    val = self.ram[self.pc+2]
+                    self.registers[reg] = val
+                    self.pc += 3
+                # do Print
+                elif op == 'PRN':
+                    reg = self.ram[self.pc+1]
+                    val = self.registers[reg]
+                    print(f"hex val: {val:x}\tdec val: {val}")
+                    self.pc += 2
+                # pass to alu
+                elif op == 'ADD' or op == 'MUL':
+                    reg_a = self.ram[self.pc+1]
+                    reg_b = self.ram[self.pc+2]
+                    self.alu(op, reg_a, reg_b)
+                    self.pc += 3
+                # push
+                elif op == 'PUSH':
+
+                    reg = self.ram[self.pc + 1]
+                    val = self.registers[reg]
+                    self.registers[self.spl] -= 1
+                    self.ram[self.registers[self.spl]] = val
+                    self.pc += 2
+                # pop
+                elif op == 'POP':
+                    reg = self.ram[self.pc + 1]
+                    val = self.ram[self.registers[self.spl]]
+                    self.registers[reg] = val
+                    self.registers[self.spl] += 1
+                    self.pc += 2
+                # ST
+                elif op == 'ST':
+                    reg_a = self.ram[self.pc + 1]
+                    reg_b = self.ram[self.pc + 2]
+                    address_a = self.registers[reg_a]
+                    val_b = self.registers[reg_b]
+                    self.ram[address_a] = val_b
+                    self.pc += 2
+                # exit
+                elif op == 'HLT':
+                    running = False
+            except KeyError:
+                print(f"unknown command {self.ir}")
+                self.pc += 1
         pass
