@@ -7,7 +7,6 @@ import os
 from cpu import *
 
 cpu = CPU()
-path = os.path.dirname(os.path.realpath(__file__)) + '/examples/print8.ls8'
 
-cpu.load(path)
+cpu.load(sys.argv[1])
 cpu.run()

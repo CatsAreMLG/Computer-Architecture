@@ -8,10 +8,6 @@ class CPU:
         self.registers = [0b0] * 8
         self.pc = 0
         self.ir = None
-        self.mar = None
-        self.mdr = None
-        self.fl = None
-        self.spl = None
         self.ram = [0b0] * 0xFF
         self.spl = 8 - 1
         self.registers[self.spl] = 0xF4
