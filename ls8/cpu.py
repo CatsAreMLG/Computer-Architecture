@@ -16,10 +16,13 @@ class CPU:
             0b10000010: 'LDI',
             0b01000111: 'PRN',
             0b00000001: 'HLT',
+            0b10100000: 'ADD',
             0b10100010: 'MUL',
             0b01000110: 'POP',
             0b01000101: 'PUSH',
             0b10000100: 'ST',
+            0b01010000: 'CALL',
+            0b00010001: 'RET'
         }
 
     def load(self, filename):
@@ -65,6 +68,62 @@ class CPU:
     def ram_write(self, value, addr):
         self.ram[addr] = value
 
+    def ldi(self):
+        reg = self.ram[self.pc + 1]
+        val = self.ram[self.pc + 2]
+        self.registers[reg] = val
+        self.pc += 3
+
+    def prn(self):
+        reg = self.ram[self.pc + 1]
+        val = self.registers[reg]
+        print(f"hex val: {val:x}\tdec val: {val}")
+        self.pc += 2
+
+    def aluf(self, op):
+        reg_a = self.ram[self.pc + 1]
+        reg_b = self.ram[self.pc + 2]
+        self.alu(op, reg_a, reg_b)
+        self.pc += 3
+
+    def push(self):
+        reg = self.ram[self.pc + 1]
+        val = self.registers[reg]
+        self.registers[self.spl] -= 1
+        self.ram[self.registers[self.spl]] = val
+        self.pc += 2
+
+    def pop(self):
+        reg = self.ram[self.pc + 1]
+        val = self.ram[self.registers[self.spl]]
+        self.registers[reg] = val
+        self.registers[self.spl] += 1
+        self.pc += 2
+
+    def st(self):
+        reg_a = self.ram[self.pc + 1]
+        reg_b = self.ram[self.pc + 2]
+        address_a = self.registers[reg_a]
+        val_b = self.registers[reg_b]
+        self.ram[address_a] = val_b
+        self.pc += 2
+
+    def call(self):
+        return_address = self.pc + 2
+        self.registers[self.spl] -= 1
+        val = self.registers[self.spl]
+        self.ram[val] = return_address
+
+        register_address = self.ram[self.pc + 1]
+        subroutine_location = self.registers[register_address]
+        self.pc = subroutine_location
+
+    def ret(self):
+        return_address = self.ram[self.spl]
+        self.registers[self.spl] += 1
+
+        self.pc = return_address
+
     def run(self):
         running = True
         while running:
@@ -74,45 +133,28 @@ class CPU:
                 op = self.OPCODES[self.ir]
                 # do LDI
                 if op == 'LDI':
-                    reg = self.ram[self.pc+1]
-                    val = self.ram[self.pc+2]
-                    self.registers[reg] = val
-                    self.pc += 3
+                    self.ldi()
                 # do Print
                 elif op == 'PRN':
-                    reg = self.ram[self.pc+1]
-                    val = self.registers[reg]
-                    print(f"hex val: {val:x}\tdec val: {val}")
-                    self.pc += 2
+                    self.prn()
                 # pass to alu
                 elif op == 'ADD' or op == 'MUL':
-                    reg_a = self.ram[self.pc+1]
-                    reg_b = self.ram[self.pc+2]
-                    self.alu(op, reg_a, reg_b)
-                    self.pc += 3
+                    self.aluf(op)
                 # push
                 elif op == 'PUSH':
-
-                    reg = self.ram[self.pc + 1]
-                    val = self.registers[reg]
-                    self.registers[self.spl] -= 1
-                    self.ram[self.registers[self.spl]] = val
-                    self.pc += 2
+                    self.push()
                 # pop
                 elif op == 'POP':
-                    reg = self.ram[self.pc + 1]
-                    val = self.ram[self.registers[self.spl]]
-                    self.registers[reg] = val
-                    self.registers[self.spl] += 1
-                    self.pc += 2
+                    self.pop()
                 # ST
                 elif op == 'ST':
-                    reg_a = self.ram[self.pc + 1]
-                    reg_b = self.ram[self.pc + 2]
-                    address_a = self.registers[reg_a]
-                    val_b = self.registers[reg_b]
-                    self.ram[address_a] = val_b
-                    self.pc += 2
+                    self.st()
+                # call
+                elif op == 'CALL':
+                    self.call()
+                # call
+                elif op == 'RET':
+                    self.ret()
                 # exit
                 elif op == 'HLT':
                     running = False
